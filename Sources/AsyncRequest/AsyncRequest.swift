@@ -48,7 +48,9 @@ open class AsyncBaseRequestHandler<Output> {
         do {
             response = try await client.get(from: url, parameters: parameters, headers: headers, configuration: configuration)
         } catch {
-            try? await client.shutdown()
+            if needsShutdown {
+                try? await client.shutdown()
+            }
             throw RequestError.urlSessionError(error: error)
         }
         let result: Result<Output, Error>
@@ -81,7 +83,9 @@ open class AsyncBaseRequestHandler<Output> {
         do {
             response = try await client.post(to: url, parameters: parameters, headers: headers, configuration: configuration)
         } catch {
-            try? await client.shutdown()
+            if needsShutdown {
+                try? await client.shutdown()
+            }
             throw RequestError.urlSessionError(error: error)
         }
         let result: Result<Output, Error>
@@ -115,7 +119,9 @@ open class AsyncBaseRequestHandler<Output> {
         do {
             response = try await client.post(to: url, json: json, encoder: encoder, headers: headers, configuration: configuration)
         } catch {
-            try? await client.shutdown()
+            if needsShutdown {
+                try? await client.shutdown()
+            }
             throw RequestError.urlSessionError(error: error)
         }
         let result: Result<Output, Error>
@@ -149,7 +155,9 @@ open class AsyncBaseRequestHandler<Output> {
         do {
             response = try await client.upload(to: url, parameters: parameters, data: data, key: key, filename: filename, headers: headers, configuration: configuration)
         } catch {
-            try? await client.shutdown()
+            if needsShutdown {
+                try? await client.shutdown()
+            }
             throw RequestError.urlSessionError(error: error)
         }
         let result: Result<Output, Error>
