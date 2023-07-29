@@ -30,13 +30,16 @@ open class AsyncBaseRequestHandler<Output> {
                           parameters: [String: String] = [:],
                           headers: [String: String]? = nil,
                           configuration: RequestConfiguration = RequestConfiguration(),
-                          eventLoopGroup: EventLoopGroup? = nil) async throws -> Output {
+                          httpClient: HTTPClient? = nil) async throws -> Output {
         let response: HTTPClientResponse
         let client: HTTPClient
-        if let eventLoopGroup {
-            client = HTTPClient(eventLoopGroupProvider: .shared(eventLoopGroup))
+        let needsShutdown: Bool
+        if let httpClient {
+            client = httpClient
+            needsShutdown = false
         } else {
             client = HTTPClient(eventLoopGroupProvider: .createNew)
+            needsShutdown = true
         }
         do {
             response = try await client.get(from: url, parameters: parameters, headers: headers, configuration: configuration)
@@ -50,7 +53,9 @@ open class AsyncBaseRequestHandler<Output> {
         } catch {
             result = .failure(error)
         }
-        try? await client.shutdown()
+        if needsShutdown {
+            try? await client.shutdown()
+        }
         return try result.get()
     }
 
@@ -58,13 +63,16 @@ open class AsyncBaseRequestHandler<Output> {
                            parameters: [String: String] = [:],
                            headers: [String: String]? = nil,
                            configuration: RequestConfiguration = RequestConfiguration(),
-                           eventLoopGroup: EventLoopGroup? = nil) async throws -> Output {
+                           httpClient: HTTPClient? = nil) async throws -> Output {
         let response: HTTPClientResponse
         let client: HTTPClient
-        if let eventLoopGroup {
-            client = HTTPClient(eventLoopGroupProvider: .shared(eventLoopGroup))
+        let needsShutdown: Bool
+        if let httpClient {
+            client = httpClient
+            needsShutdown = false
         } else {
             client = HTTPClient(eventLoopGroupProvider: .createNew)
+            needsShutdown = true
         }
         do {
             response = try await client.post(to: url, parameters: parameters, headers: headers, configuration: configuration)
@@ -78,7 +86,9 @@ open class AsyncBaseRequestHandler<Output> {
         } catch {
             result = .failure(error)
         }
-        try? await client.shutdown()
+        if needsShutdown {
+            try? await client.shutdown()
+        }
         return try result.get()
     }
 
@@ -87,13 +97,16 @@ open class AsyncBaseRequestHandler<Output> {
                                          encoder: JSONEncoder? = nil,
                                          headers: [String: String]? = nil,
                                          configuration: RequestConfiguration = RequestConfiguration(),
-                                         eventLoopGroup: EventLoopGroup? = nil) async throws -> Output {
+                                         httpClient: HTTPClient? = nil) async throws -> Output {
         let response: HTTPClientResponse
         let client: HTTPClient
-        if let eventLoopGroup {
-            client = HTTPClient(eventLoopGroupProvider: .shared(eventLoopGroup))
+        let needsShutdown: Bool
+        if let httpClient {
+            client = httpClient
+            needsShutdown = false
         } else {
             client = HTTPClient(eventLoopGroupProvider: .createNew)
+            needsShutdown = true
         }
         do {
             response = try await client.post(to: url, json: json, encoder: encoder, headers: headers, configuration: configuration)
@@ -107,7 +120,9 @@ open class AsyncBaseRequestHandler<Output> {
         } catch {
             result = .failure(error)
         }
-        try? await client.shutdown()
+        if needsShutdown {
+            try? await client.shutdown()
+        }
         return try result.get()
     }
 
@@ -116,13 +131,16 @@ open class AsyncBaseRequestHandler<Output> {
                              parameters: [String: String] = [:],
                              headers: [String: String]? = nil,
                              configuration: RequestConfiguration = RequestConfiguration(),
-                             eventLoopGroup: EventLoopGroup? = nil) async throws -> Output {
+                             httpClient: HTTPClient? = nil) async throws -> Output {
         let response: HTTPClientResponse
         let client: HTTPClient
-        if let eventLoopGroup {
-            client = HTTPClient(eventLoopGroupProvider: .shared(eventLoopGroup))
+        let needsShutdown: Bool
+        if let httpClient {
+            client = httpClient
+            needsShutdown = false
         } else {
             client = HTTPClient(eventLoopGroupProvider: .createNew)
+            needsShutdown = true
         }
         do {
             response = try await client.upload(to: url, parameters: parameters, data: data, key: key, filename: filename, headers: headers, configuration: configuration)
@@ -136,7 +154,9 @@ open class AsyncBaseRequestHandler<Output> {
         } catch {
             result = .failure(error)
         }
-        try? await client.shutdown()
+        if needsShutdown {
+            try? await client.shutdown()
+        }
         return try result.get()
     }
 }
