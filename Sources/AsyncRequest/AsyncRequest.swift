@@ -7,6 +7,10 @@ import AsyncHTTPClient
 import Foundation
 import NIO
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 @available(iOS 13.0, macOS 10.15, watchOS 6.0, tvOS 13.0, *)
 open class AsyncBaseRequestHandler<Output> {
     private class func commonHandler(response: HTTPClientResponse) async throws -> Output {
