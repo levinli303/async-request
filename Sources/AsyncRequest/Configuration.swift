@@ -5,7 +5,7 @@
 
 import Foundation
 
-public struct RequestConfiguration {
+public struct RequestConfiguration: Sendable {
     public var timeout: TimeInterval?
 
     public init(timeout: TimeInterval? = nil) {
