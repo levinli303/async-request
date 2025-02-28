@@ -7,16 +7,16 @@ import AsyncHTTPClient
 import Foundation
 import NIO
 import NIOHTTP1
-import Vapor
 
 public protocol RequestClient {
     func get(from url: String, parameters: [String: String], headers: [String: String]?, configuration: RequestConfiguration) async throws -> ClientResponse
     func post(to url: String, parameters: [String: String], headers: [String: String]?, configuration: RequestConfiguration) async throws -> ClientResponse
     func post<T: Encodable>(to url: String, json: T, encoder: JSONEncoder?, headers: [String: String]?, configuration: RequestConfiguration) async throws -> ClientResponse
+    func upload(to url: String, parameters: [String: String], data: Data, key: String, filename: String, headers: [String: String]?, configuration: RequestConfiguration) async throws -> ClientResponse
 }
 
 public protocol ClientResponse {
-    var status: HTTPStatus { get }
+    var status: HTTPResponseStatus { get }
     func getBodyData() async throws -> Data
 }
 
@@ -70,6 +70,16 @@ extension HTTPClient: RequestClient {
         }
         return try await execute(request, timeout: configuration.resolvedTimeout)
     }
+
+    public func upload(to url: String, parameters: [String: String], data: Data, key: String, filename: String, headers: [String: String]?, configuration: RequestConfiguration) async throws -> ClientResponse {
+        let newURL = try URL.from(url: url)
+        var request = HTTPClientRequest(url: newURL.absoluteString)
+        try request.setUploadParameters(parameters, data: data, key: key, filename: filename)
+        for (key, value) in headers ?? [:] {
+            request.headers.replaceOrAdd(name: key, value: value)
+        }
+        return try await execute(request, timeout: configuration.resolvedTimeout)
+    }
 }
 
 extension HTTPClientResponse: ClientResponse {
@@ -111,6 +121,42 @@ private extension HTTPClientRequest {
             body = .bytes(data)
         }
     }
+
+    mutating func setUploadParameters(_ parameters: [String: String], data: Data, key: String, filename: String) throws {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let mimeType = "application/octet-stream"
+
+        /* Create upload body */
+        var body = Data()
+
+        func appendString(_ string: String) throws {
+            guard let data = string.data(using: .utf8) else {
+                throw RequestError.urlError
+            }
+            body.append(data)
+        }
+
+        /* Key/value pairs */
+        let boundaryPrefix = "--\(boundary)\r\n"
+        for (key, value) in parameters {
+            try appendString(boundaryPrefix)
+            try appendString("Content-Disposition: form-data; name=\"\(key)\"\r\n\r\n")
+            try appendString("\(value)\r\n")
+        }
+        /* File information */
+        try appendString(boundaryPrefix)
+        try appendString("Content-Disposition: form-data; name=\"\(key)\"; filename=\"\(filename)\"\r\n")
+        try appendString("Content-Type: \(mimeType)\r\n\r\n")
+        /* File data */
+        body.append(data)
+        try appendString("\r\n")
+        try appendString("--".appending(boundary.appending("--")))
+
+        method = .POST
+        self.body = .bytes(body)
+        headers.replaceOrAdd(name: "Content-Length", value: "\(body.count)")
+        headers.replaceOrAdd(name: "Content-Type", value: "multipart/form-data; boundary=\(boundary)")
+    }
 }
 
 private extension RequestConfiguration {
@@ -121,58 +167,3 @@ private extension RequestConfiguration {
         return .seconds(60)
     }
 }
-
-public class VaporClientWrapper {
-    private let client: any Client
-
-    public init(client: any Client) {
-        self.client = client
-    }
-}
-
-extension VaporClientWrapper: RequestClient {
-    public func get(from url: String, parameters: [String : String], headers: [String : String]?, configuration: RequestConfiguration) async throws -> ClientResponse {
-        let newURL = try URL.from(url: url, parameters: parameters)
-        var httpHeaders = HTTPHeaders()
-        for (key, value) in headers ?? [:] {
-            httpHeaders.add(name: key, value: value)
-        }
-        return try await client.get(URI(string: newURL.absoluteString), headers: httpHeaders) { request in
-            request.timeout = configuration.resolvedTimeout
-        }
-    }
-
-    public func post(to url: String, parameters: [String : String], headers: [String : String]?, configuration: RequestConfiguration) async throws -> ClientResponse {
-        let newURL = try URL.from(url: url)
-        var httpHeaders = HTTPHeaders()
-        for (key, value) in headers ?? [:] {
-            httpHeaders.add(name: key, value: value)
-        }
-        return try await client.post(URI(string: newURL.absoluteString), headers: httpHeaders) { request in
-            try request.content.encode(parameters, as: .formData(boundary: "Boundary-\(UUID().uuidString)"))
-            request.timeout = configuration.resolvedTimeout
-        }
-    }
-
-    public func post<U>(to url: String, json: U, encoder: JSONEncoder?, headers: [String : String]?, configuration: RequestConfiguration) async throws -> ClientResponse where U : Encodable {
-        let newURL = try URL.from(url: url)
-        var httpHeaders = HTTPHeaders()
-        for (key, value) in headers ?? [:] {
-            httpHeaders.add(name: key, value: value)
-        }
-        return try await client.post(URI(string: newURL.absoluteString), headers: httpHeaders) { request in
-            try request.content.encode(json, as: .json)
-            request.timeout = configuration.resolvedTimeout
-        }
-    }
-}
-
-extension Vapor.ClientResponse: ClientResponse {
-    public func getBodyData() async throws -> Data {
-        var data = Data()
-        guard let bytesView = body?.readableBytesView else { return data }
-        data.append(contentsOf: bytesView)
-        return data
-    }
-}
-

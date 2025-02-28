@@ -6,10 +6,6 @@
 import Foundation
 import NIO
 
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
-
 @available(iOS 13.0, macOS 10.15, watchOS 6.0, tvOS 13.0, *)
 open class AsyncBaseRequestHandler<Output> {
     private class func commonHandler(response: ClientResponse) async throws -> Output {
@@ -21,7 +17,7 @@ open class AsyncBaseRequestHandler<Output> {
         }
         let statusCode = response.status.code
         guard statusCode < 400 else {
-            throw RequestError.httpError(statusCode: statusCode, errorString: HTTPURLResponse.localizedString(forStatusCode: Int(statusCode)), responseBody: data)
+            throw RequestError.httpError(statusCode: statusCode, errorString: response.status.reasonPhrase, responseBody: data)
         }
         return try await handleData(data)
     }
@@ -79,6 +75,27 @@ open class AsyncBaseRequestHandler<Output> {
         let response: ClientResponse
         do {
             response = try await httpClient.post(to: url, json: json, encoder: encoder, headers: headers, configuration: configuration)
+        } catch {
+            throw RequestError.urlSessionError(error: error)
+        }
+        let result: Result<Output, Error>
+        do {
+            result = .success(try await commonHandler(response: response))
+        } catch {
+            result = .failure(error)
+        }
+        return try result.get()
+    }
+
+    public class func upload(url: String,
+                             data: Data, key: String = "file", filename: String,
+                             parameters: [String: String] = [:],
+                             headers: [String: String]? = nil,
+                             configuration: RequestConfiguration = RequestConfiguration(),
+                             httpClient: RequestClient) async throws -> Output {
+        let response: ClientResponse
+        do {
+            response = try await httpClient.upload(to: url, parameters: parameters, data: data, key: key, filename: filename, headers: headers, configuration: configuration)
         } catch {
             throw RequestError.urlSessionError(error: error)
         }

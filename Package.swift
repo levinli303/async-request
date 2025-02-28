@@ -11,13 +11,11 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.9.0"),
-        .package(url: "https://github.com/vapor/vapor", from: "4.113.2"),
     ],
     targets: [
         .target(
             name: "AsyncRequest", dependencies: [
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
-                .product(name: "Vapor", package: "Vapor"),
             ]),
         .testTarget(
             name: "AsyncRequestTests",
