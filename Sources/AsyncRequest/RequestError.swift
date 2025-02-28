@@ -9,6 +9,7 @@ public enum RequestError: Error {
     case noResponse
     case urlError
     case httpError(statusCode: UInt, errorString: String, responseBody: Data)
+    case bodyData
     case urlSessionError(error: Error)
     case decodingError(error: Error)
     case unknown
@@ -29,6 +30,8 @@ extension RequestError: LocalizedError {
             return error.localizedDescription
         case .unknown:
             return NSLocalizedString("Unknown error", comment: "")
+        case .bodyData:
+            return NSLocalizedString("Error getting body data", comment: "")
         }
     }
 }

@@ -3,7 +3,6 @@
 //  Licensed under the MIT License.
 //
 
-import AsyncHTTPClient
 import Foundation
 import NIO
 
@@ -13,12 +12,13 @@ import FoundationNetworking
 
 @available(iOS 13.0, macOS 10.15, watchOS 6.0, tvOS 13.0, *)
 open class AsyncBaseRequestHandler<Output> {
-    private class func commonHandler(response: HTTPClientResponse) async throws -> Output {
-        var data = Data()
-        for try await buffer in response.body {
-            data.append(contentsOf: buffer.readableBytesView)
+    private class func commonHandler(response: ClientResponse) async throws -> Output {
+        let data: Data
+        do {
+            data = try await response.getBodyData()
+        } catch {
+            throw RequestError.bodyData
         }
-
         let statusCode = response.status.code
         guard statusCode < 400 else {
             throw RequestError.httpError(statusCode: statusCode, errorString: HTTPURLResponse.localizedString(forStatusCode: Int(statusCode)), responseBody: data)
@@ -34,23 +34,11 @@ open class AsyncBaseRequestHandler<Output> {
                           parameters: [String: String] = [:],
                           headers: [String: String]? = nil,
                           configuration: RequestConfiguration = RequestConfiguration(),
-                          httpClient: HTTPClient? = nil) async throws -> Output {
-        let response: HTTPClientResponse
-        let client: HTTPClient
-        let needsShutdown: Bool
-        if let httpClient {
-            client = httpClient
-            needsShutdown = false
-        } else {
-            client = HTTPClient(eventLoopGroupProvider: .singleton)
-            needsShutdown = true
-        }
+                          httpClient: RequestClient) async throws -> Output {
+        let response: ClientResponse
         do {
-            response = try await client.get(from: url, parameters: parameters, headers: headers, configuration: configuration)
+            response = try await httpClient.get(from: url, parameters: parameters, headers: headers, configuration: configuration)
         } catch {
-            if needsShutdown {
-                try? await client.shutdown()
-            }
             throw RequestError.urlSessionError(error: error)
         }
         let result: Result<Output, Error>
@@ -58,9 +46,6 @@ open class AsyncBaseRequestHandler<Output> {
             result = .success(try await commonHandler(response: response))
         } catch {
             result = .failure(error)
-        }
-        if needsShutdown {
-            try? await client.shutdown()
         }
         return try result.get()
     }
@@ -69,23 +54,11 @@ open class AsyncBaseRequestHandler<Output> {
                            parameters: [String: String] = [:],
                            headers: [String: String]? = nil,
                            configuration: RequestConfiguration = RequestConfiguration(),
-                           httpClient: HTTPClient? = nil) async throws -> Output {
-        let response: HTTPClientResponse
-        let client: HTTPClient
-        let needsShutdown: Bool
-        if let httpClient {
-            client = httpClient
-            needsShutdown = false
-        } else {
-            client = HTTPClient(eventLoopGroupProvider: .singleton)
-            needsShutdown = true
-        }
+                           httpClient: RequestClient) async throws -> Output {
+        let response: ClientResponse
         do {
-            response = try await client.post(to: url, parameters: parameters, headers: headers, configuration: configuration)
+            response = try await httpClient.post(to: url, parameters: parameters, headers: headers, configuration: configuration)
         } catch {
-            if needsShutdown {
-                try? await client.shutdown()
-            }
             throw RequestError.urlSessionError(error: error)
         }
         let result: Result<Output, Error>
@@ -93,9 +66,6 @@ open class AsyncBaseRequestHandler<Output> {
             result = .success(try await commonHandler(response: response))
         } catch {
             result = .failure(error)
-        }
-        if needsShutdown {
-            try? await client.shutdown()
         }
         return try result.get()
     }
@@ -105,23 +75,11 @@ open class AsyncBaseRequestHandler<Output> {
                                          encoder: JSONEncoder? = nil,
                                          headers: [String: String]? = nil,
                                          configuration: RequestConfiguration = RequestConfiguration(),
-                                         httpClient: HTTPClient? = nil) async throws -> Output {
-        let response: HTTPClientResponse
-        let client: HTTPClient
-        let needsShutdown: Bool
-        if let httpClient {
-            client = httpClient
-            needsShutdown = false
-        } else {
-            client = HTTPClient(eventLoopGroupProvider: .singleton)
-            needsShutdown = true
-        }
+                                         httpClient: RequestClient) async throws -> Output {
+        let response: ClientResponse
         do {
-            response = try await client.post(to: url, json: json, encoder: encoder, headers: headers, configuration: configuration)
+            response = try await httpClient.post(to: url, json: json, encoder: encoder, headers: headers, configuration: configuration)
         } catch {
-            if needsShutdown {
-                try? await client.shutdown()
-            }
             throw RequestError.urlSessionError(error: error)
         }
         let result: Result<Output, Error>
@@ -129,45 +87,6 @@ open class AsyncBaseRequestHandler<Output> {
             result = .success(try await commonHandler(response: response))
         } catch {
             result = .failure(error)
-        }
-        if needsShutdown {
-            try? await client.shutdown()
-        }
-        return try result.get()
-    }
-
-    public class func upload(url: String,
-                             data: Data, key: String = "file", filename: String,
-                             parameters: [String: String] = [:],
-                             headers: [String: String]? = nil,
-                             configuration: RequestConfiguration = RequestConfiguration(),
-                             httpClient: HTTPClient? = nil) async throws -> Output {
-        let response: HTTPClientResponse
-        let client: HTTPClient
-        let needsShutdown: Bool
-        if let httpClient {
-            client = httpClient
-            needsShutdown = false
-        } else {
-            client = HTTPClient(eventLoopGroupProvider: .singleton)
-            needsShutdown = true
-        }
-        do {
-            response = try await client.upload(to: url, parameters: parameters, data: data, key: key, filename: filename, headers: headers, configuration: configuration)
-        } catch {
-            if needsShutdown {
-                try? await client.shutdown()
-            }
-            throw RequestError.urlSessionError(error: error)
-        }
-        let result: Result<Output, Error>
-        do {
-            result = .success(try await commonHandler(response: response))
-        } catch {
-            result = .failure(error)
-        }
-        if needsShutdown {
-            try? await client.shutdown()
         }
         return try result.get()
     }
