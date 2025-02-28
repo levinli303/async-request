@@ -122,10 +122,10 @@ private extension RequestConfiguration {
     }
 }
 
-public class VaporClientWrapper<T: Vapor.Client> {
-    private let client: T
+public class VaporClientWrapper {
+    private let client: any Client
 
-    public init(client: T) {
+    public init(client: any Client) {
         self.client = client
     }
 }
