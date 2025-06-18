@@ -8,12 +8,15 @@ import NIO
 
 @available(iOS 13.0, macOS 10.15, watchOS 6.0, tvOS 13.0, *)
 open class AsyncBaseRequestHandler<Output> {
-    private class func commonHandler(response: ClientResponse) async throws -> Output {
-        let data: Data
+    private class func commonHandler(response: ClientResponse, dataSanitizer: (@Sendable (Data) -> Data)?) async throws -> Output {
+        var data: Data
         do {
             data = try await response.getBodyData()
         } catch {
             throw RequestError.bodyData
+        }
+        if let dataSanitizer {
+            data = dataSanitizer(data)
         }
         let statusCode = response.status.code
         guard statusCode < 400 else {
@@ -29,6 +32,7 @@ open class AsyncBaseRequestHandler<Output> {
     public class func get(url: String,
                           parameters: [String: String] = [:],
                           headers: [String: String]? = nil,
+                          dataSanitizer: (@Sendable (Data) -> Data)? = nil,
                           configuration: RequestConfiguration = RequestConfiguration(),
                           httpClient: RequestClient) async throws -> Output {
         let response: ClientResponse
@@ -39,7 +43,7 @@ open class AsyncBaseRequestHandler<Output> {
         }
         let result: Result<Output, Error>
         do {
-            result = .success(try await commonHandler(response: response))
+            result = .success(try await commonHandler(response: response, dataSanitizer: dataSanitizer))
         } catch {
             result = .failure(error)
         }
@@ -49,6 +53,7 @@ open class AsyncBaseRequestHandler<Output> {
     public class func post(url: String,
                            parameters: [String: String] = [:],
                            headers: [String: String]? = nil,
+                           dataSanitizer: (@Sendable (Data) -> Data)? = nil,
                            configuration: RequestConfiguration = RequestConfiguration(),
                            httpClient: RequestClient) async throws -> Output {
         let response: ClientResponse
@@ -59,7 +64,7 @@ open class AsyncBaseRequestHandler<Output> {
         }
         let result: Result<Output, Error>
         do {
-            result = .success(try await commonHandler(response: response))
+            result = .success(try await commonHandler(response: response, dataSanitizer: dataSanitizer))
         } catch {
             result = .failure(error)
         }
@@ -70,6 +75,7 @@ open class AsyncBaseRequestHandler<Output> {
                                          json: T,
                                          encoder: JSONEncoder? = nil,
                                          headers: [String: String]? = nil,
+                                         dataSanitizer: (@Sendable (Data) -> Data)? = nil,
                                          configuration: RequestConfiguration = RequestConfiguration(),
                                          httpClient: RequestClient) async throws -> Output {
         let response: ClientResponse
@@ -80,7 +86,7 @@ open class AsyncBaseRequestHandler<Output> {
         }
         let result: Result<Output, Error>
         do {
-            result = .success(try await commonHandler(response: response))
+            result = .success(try await commonHandler(response: response, dataSanitizer: dataSanitizer))
         } catch {
             result = .failure(error)
         }
@@ -91,6 +97,7 @@ open class AsyncBaseRequestHandler<Output> {
                              data: Data, key: String = "file", filename: String,
                              parameters: [String: String] = [:],
                              headers: [String: String]? = nil,
+                             dataSanitizer: (@Sendable (Data) -> Data)? = nil,
                              configuration: RequestConfiguration = RequestConfiguration(),
                              httpClient: RequestClient) async throws -> Output {
         let response: ClientResponse
@@ -101,7 +108,7 @@ open class AsyncBaseRequestHandler<Output> {
         }
         let result: Result<Output, Error>
         do {
-            result = .success(try await commonHandler(response: response))
+            result = .success(try await commonHandler(response: response, dataSanitizer: dataSanitizer))
         } catch {
             result = .failure(error)
         }
