@@ -3,41 +3,11 @@
 //  Licensed under the MIT License.
 //
 
+#if canImport(AsyncHTTPClient)
 import AsyncHTTPClient
 import Foundation
 import NIO
 import NIOHTTP1
-
-public protocol RequestClient {
-    func get(from url: String, parameters: [String: String], headers: [String: String]?, configuration: RequestConfiguration) async throws -> ClientResponse
-    func post(to url: String, parameters: [String: String], headers: [String: String]?, configuration: RequestConfiguration) async throws -> ClientResponse
-    func post<T: Encodable>(to url: String, json: T, encoder: JSONEncoder?, headers: [String: String]?, configuration: RequestConfiguration) async throws -> ClientResponse
-    func upload(to url: String, parameters: [String: String], data: Data, key: String, filename: String, headers: [String: String]?, configuration: RequestConfiguration) async throws -> ClientResponse
-}
-
-public protocol ClientResponse {
-    var status: HTTPResponseStatus { get }
-    func getBodyData() async throws -> Data
-}
-
-private extension URL {
-    static func from(url: String, parameters: [String: String] = [:]) throws -> URL {
-        if parameters.count == 0 {
-            guard let newURL = URL(string: url) else {
-                throw RequestError.urlError
-            }
-            return newURL
-        }
-        guard var components = URLComponents(string: url) else {
-            throw RequestError.urlError
-        }
-        components.queryItems = parameters.count == 0 ? nil : parameters.map { URLQueryItem(name: $0.key, value: $0.value) }
-        guard let newURL = components.url else {
-            throw RequestError.urlError
-        }
-        return newURL
-    }
-}
 
 extension HTTPClient: RequestClient {
     public func get(from url: String, parameters: [String: String], headers: [String: String]?, configuration: RequestConfiguration) async throws -> ClientResponse {
@@ -64,7 +34,6 @@ extension HTTPClient: RequestClient {
         let newURL = try URL.from(url: url)
         var request = HTTPClientRequest(url: newURL.absoluteString)
         try request.setPostParametersJson(json, encoder: encoder)
-
         for (key, value) in headers ?? [:] {
             request.headers.replaceOrAdd(name: key, value: value)
         }
@@ -83,6 +52,8 @@ extension HTTPClient: RequestClient {
 }
 
 extension HTTPClientResponse: ClientResponse {
+    public var statusCode: UInt { status.code }
+    public var statusReasonPhrase: String { status.reasonPhrase }
     public func getBodyData() async throws -> Data {
         var data = Data()
         for try await buffer in body {
@@ -126,7 +97,6 @@ private extension HTTPClientRequest {
         let boundary = "Boundary-\(UUID().uuidString)"
         let mimeType = "application/octet-stream"
 
-        /* Create upload body */
         var body = Data()
 
         func appendString(_ string: String) throws {
@@ -136,18 +106,15 @@ private extension HTTPClientRequest {
             body.append(data)
         }
 
-        /* Key/value pairs */
         let boundaryPrefix = "--\(boundary)\r\n"
         for (key, value) in parameters {
             try appendString(boundaryPrefix)
             try appendString("Content-Disposition: form-data; name=\"\(key)\"\r\n\r\n")
             try appendString("\(value)\r\n")
         }
-        /* File information */
         try appendString(boundaryPrefix)
         try appendString("Content-Disposition: form-data; name=\"\(key)\"; filename=\"\(filename)\"\r\n")
         try appendString("Content-Type: \(mimeType)\r\n\r\n")
-        /* File data */
         body.append(data)
         try appendString("\r\n")
         try appendString("--".appending(boundary.appending("--")))
@@ -167,3 +134,4 @@ private extension RequestConfiguration {
         return .seconds(60)
     }
 }
+#endif

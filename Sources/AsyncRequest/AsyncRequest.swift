@@ -4,9 +4,7 @@
 //
 
 import Foundation
-import NIO
 
-@available(iOS 13.0, macOS 10.15, watchOS 6.0, tvOS 13.0, *)
 open class AsyncBaseRequestHandler<Output> {
     private class func commonHandler(response: ClientResponse, dataSanitizer: (@Sendable (Data) -> Data)?) async throws -> Output {
         var data: Data
@@ -18,9 +16,9 @@ open class AsyncBaseRequestHandler<Output> {
         if let dataSanitizer {
             data = dataSanitizer(data)
         }
-        let statusCode = response.status.code
+        let statusCode = response.statusCode
         guard statusCode < 400 else {
-            throw RequestError.httpError(statusCode: statusCode, errorString: response.status.reasonPhrase, responseBody: data)
+            throw RequestError.httpError(statusCode: statusCode, errorString: response.statusReasonPhrase, responseBody: data)
         }
         return try await handleData(data)
     }
@@ -116,21 +114,18 @@ open class AsyncBaseRequestHandler<Output> {
     }
 }
 
-@available(iOS 13.0, macOS 10.15, watchOS 6.0, tvOS 13.0, *)
 public class AsyncEmptyRequestHandler: AsyncBaseRequestHandler<Void> {
     public override class func handleData(_ data: Data) async throws -> Void {
         return ()
     }
 }
 
-@available(iOS 13.0, macOS 10.15, watchOS 6.0, tvOS 13.0, *)
 public class AsyncDataRequestHandler: AsyncBaseRequestHandler<Data> {
     public override class func handleData(_ data: Data) async throws -> Data {
         return data
     }
 }
 
-@available(iOS 13.0, macOS 10.15, watchOS 6.0, tvOS 13.0, *)
 public class AsyncJSONRequestHandler<Output>: AsyncBaseRequestHandler<Output> where Output: JSONDecodable {
 
     public override class func handleData(_ data: Data) async throws -> Output {
