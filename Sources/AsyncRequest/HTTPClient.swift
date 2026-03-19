@@ -3,7 +3,7 @@
 //  Licensed under the MIT License.
 //
 
-#if canImport(AsyncHTTPClient)
+#if AsyncHTTPClient
 import AsyncHTTPClient
 import Foundation
 import NIO

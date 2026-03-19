@@ -23,9 +23,6 @@ let package = Package(
             dependencies: [
                 .product(name: "AsyncHTTPClient", package: "async-http-client", condition: .when(traits: ["AsyncHTTPClient"])),
             ],
-            swiftSettings: [
-                .define("USE_URL_SESSION", .when(traits: ["URLSession"])),
-            ]
         ),
         .testTarget(
             name: "AsyncRequestTests",

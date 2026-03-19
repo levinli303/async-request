@@ -3,7 +3,7 @@
 //  Licensed under the MIT License.
 //
 
-#if USE_URL_SESSION
+#if URLSession
 import Foundation
 
 private struct URLSessionClientResponse: ClientResponse, Sendable {
