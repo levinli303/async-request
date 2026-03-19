@@ -6,7 +6,7 @@
 import Foundation
 
 open class AsyncBaseRequestHandler<Output> {
-    private class func commonHandler(response: ClientResponse, dataSanitizer: (@Sendable (Data) -> Data)?) async throws -> Output {
+    private class func commonHandler(response: ClientResponse, dataSanitizer: (@Sendable (Data) -> Data)?) async throws(RequestError) -> Output {
         var data: Data
         do {
             data = try await response.getBodyData()
@@ -23,7 +23,7 @@ open class AsyncBaseRequestHandler<Output> {
         return try await handleData(data)
     }
 
-    open class func handleData(_ data: Data) async throws -> Output {
+    open class func handleData(_ data: Data) async throws(RequestError) -> Output {
         fatalError("Subclass should implement handleData:")
     }
 
@@ -32,20 +32,14 @@ open class AsyncBaseRequestHandler<Output> {
                           headers: [String: String]? = nil,
                           dataSanitizer: (@Sendable (Data) -> Data)? = nil,
                           configuration: RequestConfiguration = RequestConfiguration(),
-                          httpClient: RequestClient) async throws -> Output {
+                          httpClient: RequestClient) async throws(RequestError) -> Output {
         let response: ClientResponse
         do {
             response = try await httpClient.get(from: url, parameters: parameters, headers: headers, configuration: configuration)
         } catch {
             throw RequestError.urlSessionError(error: error)
         }
-        let result: Result<Output, Error>
-        do {
-            result = .success(try await commonHandler(response: response, dataSanitizer: dataSanitizer))
-        } catch {
-            result = .failure(error)
-        }
-        return try result.get()
+        return try await commonHandler(response: response, dataSanitizer: dataSanitizer)
     }
 
     public class func post(url: String,
@@ -53,20 +47,14 @@ open class AsyncBaseRequestHandler<Output> {
                            headers: [String: String]? = nil,
                            dataSanitizer: (@Sendable (Data) -> Data)? = nil,
                            configuration: RequestConfiguration = RequestConfiguration(),
-                           httpClient: RequestClient) async throws -> Output {
+                           httpClient: RequestClient) async throws(RequestError) -> Output {
         let response: ClientResponse
         do {
             response = try await httpClient.post(to: url, parameters: parameters, headers: headers, configuration: configuration)
         } catch {
             throw RequestError.urlSessionError(error: error)
         }
-        let result: Result<Output, Error>
-        do {
-            result = .success(try await commonHandler(response: response, dataSanitizer: dataSanitizer))
-        } catch {
-            result = .failure(error)
-        }
-        return try result.get()
+        return try await commonHandler(response: response, dataSanitizer: dataSanitizer)
     }
 
     public class func post<T: Encodable>(url: String,
@@ -75,20 +63,14 @@ open class AsyncBaseRequestHandler<Output> {
                                          headers: [String: String]? = nil,
                                          dataSanitizer: (@Sendable (Data) -> Data)? = nil,
                                          configuration: RequestConfiguration = RequestConfiguration(),
-                                         httpClient: RequestClient) async throws -> Output {
+                                         httpClient: RequestClient) async throws(RequestError) -> Output {
         let response: ClientResponse
         do {
             response = try await httpClient.post(to: url, json: json, encoder: encoder, headers: headers, configuration: configuration)
         } catch {
             throw RequestError.urlSessionError(error: error)
         }
-        let result: Result<Output, Error>
-        do {
-            result = .success(try await commonHandler(response: response, dataSanitizer: dataSanitizer))
-        } catch {
-            result = .failure(error)
-        }
-        return try result.get()
+        return try await commonHandler(response: response, dataSanitizer: dataSanitizer)
     }
 
     public class func upload(url: String,
@@ -97,38 +79,32 @@ open class AsyncBaseRequestHandler<Output> {
                              headers: [String: String]? = nil,
                              dataSanitizer: (@Sendable (Data) -> Data)? = nil,
                              configuration: RequestConfiguration = RequestConfiguration(),
-                             httpClient: RequestClient) async throws -> Output {
+                             httpClient: RequestClient) async throws(RequestError) -> Output {
         let response: ClientResponse
         do {
             response = try await httpClient.upload(to: url, parameters: parameters, data: data, key: key, filename: filename, headers: headers, configuration: configuration)
         } catch {
             throw RequestError.urlSessionError(error: error)
         }
-        let result: Result<Output, Error>
-        do {
-            result = .success(try await commonHandler(response: response, dataSanitizer: dataSanitizer))
-        } catch {
-            result = .failure(error)
-        }
-        return try result.get()
+        return try await commonHandler(response: response, dataSanitizer: dataSanitizer)
     }
 }
 
 public class AsyncEmptyRequestHandler: AsyncBaseRequestHandler<Void> {
-    public override class func handleData(_ data: Data) async throws -> Void {
+    public override class func handleData(_ data: Data) async throws(RequestError) -> Void {
         return ()
     }
 }
 
 public class AsyncDataRequestHandler: AsyncBaseRequestHandler<Data> {
-    public override class func handleData(_ data: Data) async throws -> Data {
+    public override class func handleData(_ data: Data) async throws(RequestError) -> Data {
         return data
     }
 }
 
 public class AsyncJSONRequestHandler<Output>: AsyncBaseRequestHandler<Output> where Output: JSONDecodable {
 
-    public override class func handleData(_ data: Data) async throws -> Output {
+    public override class func handleData(_ data: Data) async throws(RequestError) -> Output {
         do {
             return try (Output.decoder ?? JSONDecoder()).decode(Output.self, from: data)
         } catch {
